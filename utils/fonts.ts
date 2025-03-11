@@ -1,5 +1,8 @@
-import localFont from 'next/font/local';
+import { Roboto_Mono } from 'next/font/google';
 
-export const departureMono = localFont({
-  src: '../fonts/DepartureMono-Regular.woff2',
+export const robotoMono = Roboto_Mono({ 
+  weight: '400',
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-roboto-mono'
 });

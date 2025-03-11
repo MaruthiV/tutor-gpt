@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { DarkModeSwitch } from 'react-toggle-dark-mode';
 import { useEffect, useState } from 'react';
 import bloomIcon from '@/public/bloom_icon_large.jpg';
-import { departureMono } from '@/utils/fonts';
+import { robotoMono } from '@/utils/fonts';
 // import lightBanner from '@/public/bloom2x1.svg';
 // import darkBanner from '@/public/bloom2x1dark.svg';
 
@@ -47,7 +47,7 @@ export function Header() {
             className="rounded-full"
           />
           <span
-            className={`text-foreground text-xl font-departure ${departureMono.className}`}
+            className={`text-foreground text-xl ${robotoMono.className}`}
           >
             BLOOM
           </span>

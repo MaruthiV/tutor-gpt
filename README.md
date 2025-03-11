@@ -12,7 +12,7 @@ Labs](https://plasticlabs.ai). It dynamically reasons about your learning needs
 and _updates its own prompts_ to best serve you.
 
 We leaned into theory of mind experiments and it is now more than just a
-literacy tutor, it’s an expansive learning companion. Read more about how it
+literacy tutor, it's an expansive learning companion. Read more about how it
 works [here](https://blog.plasticlabs.ai/blog/Theory-of-Mind-Is-All-You-Need).
 
 Tutor-GPT is powered by [Honcho](https://honcho.dev) to build robust user
@@ -238,3 +238,55 @@ Once your changes are accepted and merged into staging they will under go a peri
 ## License
 
 Tutor-GPT is licensed under the GPL-3.0 License. Learn more at the [License file](./LICENSE)
+
+## Conversation Sharing
+
+Tutor-GPT allows users to share their conversations with others through unique, shareable links. This feature enables collaboration and knowledge sharing among users.
+
+### How to Share a Conversation
+
+1. Add the ShareButton component to your conversation:
+```tsx
+<ShareButton 
+  conversationId={conversation.id}
+  isShared={conversation.is_shared}
+  initialShareUrl={conversation.share_url}
+/>
+```
+
+2. Click the "Share" button to generate a unique share link
+3. The link will be automatically copied to your clipboard
+4. Share the link with others
+
+### API Endpoints
+
+#### Share a Conversation
+```http
+POST /api/conversations/{id}/share
+```
+
+Response:
+```json
+{
+  "shareUrl": "/share/{shareId}"
+}
+```
+
+#### View a Shared Conversation
+```http
+GET /share/{shareId}
+```
+
+### Security Features
+
+- Rate limiting: Maximum 10 share requests per minute per user
+- Only conversation owners can generate share links
+- Share URLs are unique and hard to guess (using nanoid)
+- Shared conversations are read-only
+- Row-level security ensures proper access control
+
+### Database Schema
+
+The sharing feature uses the following fields in the conversations table:
+- `is_shared`: boolean - Indicates if the conversation is shared
+- `share_url`: text - The unique URL for accessing the shared conversation

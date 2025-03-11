@@ -11,16 +11,40 @@ type Price = Tables<'prices'>;
 const TRIAL_PERIOD_DAYS = 0;
 const FREE_MESSAGE_LIMIT = 50;
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-01-27.acacia',
-});
+// Initialize Stripe only if the secret key is available and Stripe is enabled
+const stripe = process.env.NEXT_PUBLIC_STRIPE_ENABLED === 'true' && process.env.STRIPE_SECRET_KEY
+  ? new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: '2025-01-27.acacia',
+    })
+  : null;
+
+if (process.env.NEXT_PUBLIC_STRIPE_ENABLED === 'true' && !stripe) {
+  console.warn('Stripe is enabled but not initialized. Payment features will be disabled.');
+} else if (process.env.NEXT_PUBLIC_STRIPE_ENABLED !== 'true') {
+  console.info('Stripe is disabled. Payment features will not be available.');
+}
 
 // Note: supabaseAdmin uses the SERVICE_ROLE_KEY which you must only use in a secure server-side context
 // as it has admin privileges and overwrites RLS policies!
-const supabaseAdmin = createClient<Database>(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  throw new Error('Missing required environment variables for Supabase admin client');
+}
+
+const supabaseAdmin = createClient<Database>(supabaseUrl, supabaseServiceKey);
+
+// Helper function to check if Stripe is initialized and enabled
+const requireStripe = () => {
+  if (process.env.NEXT_PUBLIC_STRIPE_ENABLED !== 'true') {
+    throw new Error('Stripe is not enabled');
+  }
+  if (!stripe) {
+    throw new Error('Stripe is not initialized');
+  }
+  return stripe;
+};
 
 const createFreeTrialSubscription = async (userId: string) => {
   const subscriptionData: TablesInsert<'subscriptions'> = {
@@ -183,7 +207,7 @@ const upsertCustomerToSupabase = async (uuid: string, customerId: string) => {
 
 const createCustomerInStripe = async (uuid: string, email: string) => {
   const customerData = { metadata: { supabaseUUID: uuid }, email: email };
-  const newCustomer = await stripe.customers.create(customerData);
+  const newCustomer = await requireStripe().customers.create(customerData);
   if (!newCustomer) throw new Error('Stripe customer creation failed.');
 
   return newCustomer.id;
@@ -211,13 +235,13 @@ const createOrRetrieveCustomer = async ({
   // Retrieve the Stripe customer ID using the Supabase customer ID, with email fallback
   let stripeCustomerId: string | undefined;
   if (existingSupabaseCustomer?.stripe_customer_id) {
-    const existingStripeCustomer = await stripe.customers.retrieve(
+    const existingStripeCustomer = await requireStripe().customers.retrieve(
       existingSupabaseCustomer.stripe_customer_id
     );
     stripeCustomerId = existingStripeCustomer.id;
   } else {
     // If Stripe ID is missing from Supabase, try to retrieve Stripe customer ID by email
-    const stripeCustomers = await stripe.customers.list({ email: email });
+    const stripeCustomers = await requireStripe().customers.list({ email: email });
     stripeCustomerId =
       stripeCustomers.data.length > 0 ? stripeCustomers.data[0].id : undefined;
   }
@@ -273,7 +297,7 @@ const copyBillingDetailsToCustomer = async (
   const { name, phone, address } = payment_method.billing_details;
   if (!name || !phone || !address) return;
   //@ts-expect-error address type string | null not assignable to type string | undefined
-  await stripe.customers.update(customer, { name, phone, address });
+  await requireStripe().customers.update(customer, { name, phone, address });
   const { error: updateError } = await supabaseAdmin
     .from('users')
     .update({
@@ -302,7 +326,7 @@ const manageSubscriptionStatusChange = async (
 
   const { id: uuid } = customerData!;
 
-  const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
+  const subscription = await requireStripe().subscriptions.retrieve(subscriptionId, {
     expand: ['default_payment_method'],
   });
   // Upsert the latest status of the subscription object.

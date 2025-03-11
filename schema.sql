@@ -145,3 +145,71 @@ create policy "Can only view own subs data." on subscriptions for select using (
  */
 -- drop publication if exists supabase_realtime;
 -- create publication supabase_realtime for table products, prices;
+
+/**
+ * CONVERSATIONS
+ * Store user conversations and their messages
+ */
+create table conversations (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users not null,
+  title text not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  is_shared boolean default false,
+  share_url text unique,
+  metadata jsonb
+);
+alter table conversations enable row level security;
+create policy "Users can view own conversations" on conversations
+  for select using (auth.uid() = user_id);
+create policy "Users can insert own conversations" on conversations
+  for insert with check (auth.uid() = user_id);
+create policy "Users can update own conversations" on conversations
+  for update using (auth.uid() = user_id);
+create policy "Users can delete own conversations" on conversations
+  for delete using (auth.uid() = user_id);
+create policy "Anyone can view shared conversations" on conversations
+  for select using (is_shared = true);
+
+create table conversation_messages (
+  id uuid default gen_random_uuid() primary key,
+  conversation_id uuid references conversations on delete cascade not null,
+  role text not null check (role in ('user', 'assistant', 'system')),
+  content text not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  metadata jsonb
+);
+alter table conversation_messages enable row level security;
+create policy "Users can view messages of own conversations" on conversation_messages
+  for select using (
+    exists (
+      select 1 from conversations
+      where conversations.id = conversation_messages.conversation_id
+      and (conversations.user_id = auth.uid() or conversations.is_shared = true)
+    )
+  );
+create policy "Users can insert messages in own conversations" on conversation_messages
+  for insert with check (
+    exists (
+      select 1 from conversations
+      where conversations.id = conversation_messages.conversation_id
+      and conversations.user_id = auth.uid()
+    )
+  );
+
+-- Function to update conversation's updated_at timestamp
+create function update_conversation_timestamp()
+returns trigger as $$
+begin
+  update conversations
+  set updated_at = now()
+  where id = new.conversation_id;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+-- Trigger to update conversation timestamp when new message is added
+create trigger conversation_timestamp_update
+  after insert on conversation_messages
+  for each row execute procedure update_conversation_timestamp();

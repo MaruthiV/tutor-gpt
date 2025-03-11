@@ -16,7 +16,7 @@ import {
 } from '@/app/actions/conversations';
 import { type Conversation, type Message } from '@/utils/types';
 import { clearSWRCache } from '@/utils/swrCache';
-import { departureMono } from '@/utils/fonts';
+import { robotoMono } from '@/utils/fonts';
 
 export default function Sidebar({
   conversations,
@@ -165,7 +165,7 @@ export default function Sidebar({
 
   return (
     <div
-      className={`${departureMono.className} absolute lg:relative top-0 left-0 z-40 h-full w-80 transition-transform ${
+      className={`${robotoMono.className} absolute lg:relative top-0 left-0 z-40 h-full w-80 transition-transform ${
         isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
       }`}
     >
